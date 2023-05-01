@@ -26,7 +26,8 @@ internal class MethodDevirtualizer : StageBase
         { 
             // if (vmMethod.EncodedMethodKey != @"5<]fEBf\76") continue;
             // if (vmMethod.EncodedMethodKey != @"5<_4mf/boO") continue;
-            
+            if (vmMethod.Parent.MetadataToken != 0x6002720 && vmMethod.Parent.MetadataToken != 0x060071D1)
+                continue;
             vmMethod.MethodKey = VMCipherStream.DecodeMethodKey(vmMethod.EncodedMethodKey, Ctx.PositionCryptoKey);
             
             VMStream.Seek(vmMethod.MethodKey, SeekOrigin.Begin);
