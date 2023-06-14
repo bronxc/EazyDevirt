@@ -1,8 +1,6 @@
-﻿using AsmResolver.DotNet;
-using AsmResolver.DotNet.Code.Cil;
+﻿using AsmResolver.DotNet.Code.Cil;
 using AsmResolver.DotNet.Serialized;
 using AsmResolver.PE.DotNet.Cil;
-using EazyDevirt.Core.Abstractions;
 using EazyDevirt.Core.Abstractions.Interfaces;
 using EazyDevirt.Core.Architecture;
 
@@ -91,6 +89,91 @@ internal record Clt_Un : IOpCodePattern
 }
 #endregion Clt
 
+#region Cgt
+
+internal record CgtInnerPattern : IPattern
+{
+    public IList<CilOpCode> Pattern => new List<CilOpCode>
+    {
+        CilOpCodes.Ldarg_0,     // 97	0102	ldarg.0
+        CilOpCodes.Castclass,   // 98	0103	castclass	VMIntOperand
+        CilOpCodes.Callvirt,    // 99	0108	callvirt	instance int32 VMIntOperand::method_3()
+        CilOpCodes.Ldarg_1,     // 100	010D	ldarg.1
+        CilOpCodes.Castclass,   // 101	010E	castclass	VMIntOperand
+        CilOpCodes.Callvirt,    // 102	0113	callvirt	instance int32 VMIntOperand::method_3()
+        CilOpCodes.Cgt,         // 103	0118	cgt
+        CilOpCodes.Stloc_0,     // 104	011A	stloc.0
+    };
+
+    public bool MatchEntireBody => false;
+    
+    public bool InterchangeStlocOpCodes => true;
+}
+
+internal record Cgt : IOpCodePattern
+{
+    public IList<CilOpCode> Pattern => new List<CilOpCode>
+    {
+        CilOpCodes.Call,        // 9	0011	call	bool VM::CgtInner(class VMOperandType, class VMOperandType)
+        CilOpCodes.Brtrue_S,    // 10	0016	brtrue.s	13 (001B) ldc.i4.1 
+        CilOpCodes.Ldc_I4_0,    // 11	0018	ldc.i4.0
+        CilOpCodes.Br_S,        // 12	0019	br.s	14 (001C) newobj instance void VMIntOperand::.ctor(int32)
+        CilOpCodes.Ldc_I4_1,    // 13	001B	ldc.i4.1
+    };
+
+    public CilOpCode? CilOpCode => CilOpCodes.Cgt;
+
+    public bool MatchEntireBody => false;
+
+    public bool Verify(VMOpCode vmOpCode, int index = 0) => PatternMatcher.MatchesPattern(new CgtInnerPattern(),
+        (vmOpCode.SerializedDelegateMethod.CilMethodBody!.Instructions[index].Operand as SerializedMethodDefinition)!);
+}
+
+#endregion Cgt
+
+#region Cgt_Un
+
+// this is a weird one, it's > for double, int, and long but != for other types
+internal record Cgt_UnInnerPattern : IPattern
+{
+    public IList<CilOpCode> Pattern => new List<CilOpCode>
+    {
+        CilOpCodes.Ldarg_0,     // 156	01ED	ldarg.0
+        CilOpCodes.Castclass,   // 157	01EE	castclass	VMLongOperand
+        CilOpCodes.Callvirt,    // 158	01F3	callvirt	instance int64 VMLongOperand::method_3()
+        CilOpCodes.Ldarg_1,     // 159	01F8	ldarg.1
+        CilOpCodes.Castclass,   // 160	01F9	castclass	VMLongOperand
+        CilOpCodes.Callvirt,    // 161	01FE	callvirt	instance int64 VMLongOperand::method_3()
+        CilOpCodes.Cgt_Un,      // 162	0203	cgt.un
+        CilOpCodes.Stloc_0,     // 163	0205	stloc.0
+    };
+
+    public bool MatchEntireBody => false;
+    
+    public bool InterchangeStlocOpCodes => true;
+}
+
+internal record Cgt_Un : IOpCodePattern
+{
+    public IList<CilOpCode> Pattern => new List<CilOpCode>
+    {
+        CilOpCodes.Call,        // 9	0011	call	bool VM::Cgt_UnInner(class VMOperandType, class VMOperandType)
+        CilOpCodes.Brtrue_S,    // 10	0016	brtrue.s	13 (001B) ldc.i4.1 
+        CilOpCodes.Ldc_I4_0,    // 11	0018	ldc.i4.0
+        CilOpCodes.Br_S,        // 12	0019	br.s	14 (001C) newobj instance void VMIntOperand::.ctor(int32)
+        CilOpCodes.Ldc_I4_1,    // 13	001B	ldc.i4.1
+    };
+
+    public CilOpCode? CilOpCode => CilOpCodes.Cgt_Un;
+
+    public bool MatchEntireBody => false;
+
+    public bool Verify(VMOpCode vmOpCode, int index = 0) => PatternMatcher.MatchesPattern(new Cgt_UnInnerPattern(),
+        (vmOpCode.SerializedDelegateMethod.CilMethodBody!.Instructions[index].Operand as SerializedMethodDefinition)!);
+}
+
+#endregion Cgt
+
 #region Ceq
 
 internal record CeqInnerPattern : IPattern
@@ -98,9 +181,9 @@ internal record CeqInnerPattern : IPattern
     public IList<CilOpCode> Pattern => new List<CilOpCode>
     {
         CilOpCodes.Ldarg_0,     // 283	03CC	ldarg.0
-        CilOpCodes.Callvirt,    // 284	03CD	callvirt	instance object VMOperandType::vmethod_0()
+        CilOpCodes.Callvirt,    // 284	03CD	callvirt	instance object VMOperandType::GetOperandValue()
         CilOpCodes.Ldarg_1,     // 285	03D2	ldarg.1
-        CilOpCodes.Callvirt,    // 286	03D3	callvirt	instance object VMOperandType::vmethod_0()
+        CilOpCodes.Callvirt,    // 286	03D3	callvirt	instance object VMOperandType::GetOperandValue()
         CilOpCodes.Ceq,         // 287	03D8	ceq
         CilOpCodes.Stloc_0,     // 288	03DA	stloc.0
     };

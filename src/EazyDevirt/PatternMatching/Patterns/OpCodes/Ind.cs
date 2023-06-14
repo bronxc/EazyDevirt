@@ -2,7 +2,6 @@
 using AsmResolver.DotNet.Code.Cil;
 using AsmResolver.DotNet.Serialized;
 using AsmResolver.PE.DotNet.Cil;
-using EazyDevirt.Core.Abstractions;
 using EazyDevirt.Core.Abstractions.Interfaces;
 using EazyDevirt.Core.Architecture;
 using EazyDevirt.Devirtualization;
@@ -24,37 +23,19 @@ internal record LdindInnerPattern : IPattern
         CilOpCodes.Ldarg_0,     // 5	000D	ldarg.0
         CilOpCodes.Ldloc_0,     // 6	000E	ldloc.0
         CilOpCodes.Call,        // 7	000F	call	instance class VMOperandType VM::method_85(class Class38)
-        CilOpCodes.Callvirt,    // 8	0014	callvirt	instance object VMOperandType::vmethod_0()
+        CilOpCodes.Callvirt,    // 8	0014	callvirt	instance object VMOperandType::GetOperandValue()
         CilOpCodes.Ldarg_1,     // 9	0019	ldarg.1
-        CilOpCodes.Call,        // 10	001A	call	class VMOperandType VMOperandType::smethod_0(object, class [mscorlib]System.Type)
+        CilOpCodes.Call,        // 10	001A	call	class VMOperandType VMOperandType::ConvertToVMOperand(object, class [mscorlib]System.Type)
         CilOpCodes.Call,        // 11	001F	call	instance void VM::PushStack(class VMOperandType)
         CilOpCodes.Ret          // 12	0024	ret
     };
 
     public bool InterchangeLdlocOpCodes => true;
     public bool InterchangeStlocOpCodes => true;
-}
 
-// internal record Ldind : IOpCodePattern
-// {
-//     public IList<CilOpCode> Pattern => new List<CilOpCode>
-//     {
-//         CilOpCodes.Ldarg_0,     // 9	0015	ldarg.0
-//         CilOpCodes.Ldloc_1,     // 10	0016	ldloc.1
-//         CilOpCodes.Callvirt,    // 11	0017	callvirt	instance void VM::LdindInner(class [mscorlib]System.Type)
-//         CilOpCodes.Ret          // 12	001C	ret
-//     };
-//
-//     public CilOpCode? CilOpCode => CilOpCodes.Ldind_I;
-//
-//     public bool MatchEntireBody => false;
-//
-//     public bool InterchangeLdlocOpCodes => true;
-//
-//     public bool Verify(VMOpCode vmOpCode, int index) =>
-//         PatternMatcher.MatchesPattern(new LdindInnerPattern(),
-//             (vmOpCode.SerializedDelegateMethod.CilMethodBody!.Instructions[index + 2].Operand as SerializedMethodDefinition)!);
-// }
+    public bool Verify(MethodDefinition method, int index = 0) =>
+        method.Parameters[0].ParameterType.FullName == "System.Type";
+}
 
 internal record Ldind_Ref : IOpCodePattern
 {
@@ -305,8 +286,33 @@ internal record Ldind_U4 : IOpCodePattern
 
 #endregion Ldind
 
+#region Ldobj
+
+internal record Ldobj : IOpCodePattern
+{
+    public IList<CilOpCode> Pattern => new List<CilOpCode>
+    {
+        CilOpCodes.Ldarg_0,     // 9	0015	ldarg.0
+        CilOpCodes.Ldloc_1,     // 10	0016	ldloc.1
+        CilOpCodes.Callvirt,    // 11	0017	callvirt	instance void VM::LdindInner(class [mscorlib]System.Type)
+        CilOpCodes.Ret          // 12	001C	ret
+    };
+
+    public CilOpCode? CilOpCode => CilOpCodes.Ldobj;
+
+    public bool MatchEntireBody => false;
+
+    public bool InterchangeLdlocOpCodes => true;
+
+    public bool Verify(VMOpCode vmOpCode, int index) =>
+        PatternMatcher.MatchesPattern(new LdindInnerPattern(),
+            (vmOpCode.SerializedDelegateMethod.CilMethodBody!.Instructions[index + 2].Operand as SerializedMethodDefinition)!);
+}
+
+#endregion Ldobj
+
 // TODO: Handle stind opcodes
-// The stind opcode handlers all use the same method, however the method has no parameters, therefore having no way of
+// The stind (and stobj) opcode handlers all use the same method, however the method has no parameters, therefore having no way of
 // differentiating them through pattern matching (without matching each VMOperandType, because that sounds like a lot of effort).
 // Due to this, we cannot use pattern matching for each stind opcode.
 // Instead of pattern matching them, once the opcode devirtualization has finished, we should iterate through the

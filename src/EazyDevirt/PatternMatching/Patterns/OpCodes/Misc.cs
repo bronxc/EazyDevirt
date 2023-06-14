@@ -107,7 +107,7 @@ internal record Dup : IOpCodePattern
         CilOpCodes.Stloc_0,     // 2	0006	stloc.0
         CilOpCodes.Ldarg_0,     // 3	0007	ldarg.0
         CilOpCodes.Ldloc_0,     // 4	0008	ldloc.0
-        CilOpCodes.Callvirt,    // 5	0009	callvirt	instance class VMOperandType VMOperandType::vmethod_3()
+        CilOpCodes.Callvirt,    // 5	0009	callvirt	instance class VMOperandType VMOperandType::Clone()
         CilOpCodes.Callvirt,    // 6	000E	callvirt	instance void VM::PushStack(class VMOperandType)
         CilOpCodes.Ret          // 7	0013	ret
     };
@@ -195,13 +195,13 @@ internal record Box : IOpCodePattern
         CilOpCodes.Stloc_1,     // 8	0014	stloc.1
         CilOpCodes.Ldarg_0,     // 9	0015	ldarg.0
         CilOpCodes.Callvirt,    // 10	0016	callvirt	instance class VMOperandType VM::PopStack()
-        CilOpCodes.Callvirt,    // 11	001B	callvirt	instance object VMOperandType::vmethod_0()
+        CilOpCodes.Callvirt,    // 11	001B	callvirt	instance object VMOperandType::GetOperandValue()
         CilOpCodes.Ldloc_1,     // 12	0020	ldloc.1
-        CilOpCodes.Call,        // 13	0021	call	class VMOperandType VMOperandType::smethod_0(object, class [mscorlib]System.Type)
+        CilOpCodes.Call,        // 13	0021	call	class VMOperandType VMOperandType::ConvertToVMOperand(object, class [mscorlib]System.Type)
         CilOpCodes.Stloc_2,     // 14	0026	stloc.2
         CilOpCodes.Ldloc_2,     // 15	0027	ldloc.2
         CilOpCodes.Ldloc_1,     // 16	0028	ldloc.1
-        CilOpCodes.Callvirt,    // 17	0029	callvirt	instance void VMOperandType::method_2(class [mscorlib]System.Type)
+        CilOpCodes.Callvirt,    // 17	0029	callvirt	instance void VMOperandType::SetOperandType(class [mscorlib]System.Type)
         CilOpCodes.Ldarg_0,     // 18	002E	ldarg.0
         CilOpCodes.Ldloc_2,     // 19	002F	ldloc.2
         CilOpCodes.Callvirt,    // 20	0030	callvirt	instance void VM::PushStack(class VMOperandType)
@@ -229,6 +229,22 @@ internal record Box : IOpCodePattern
 }
 #endregion Box
 
+#region Unbox
+
+internal record Unbox : IOpCodePattern
+{
+    public IList<CilOpCode> Pattern => new List<CilOpCode>
+    {
+        CilOpCodes.Ret          // 0	0000	ret
+    };
+
+    public CilOpCode? CilOpCode => CilOpCodes.Unbox;
+    
+    public bool Verify(VMOpCode vmOpCode, int index = 0) => vmOpCode.CilOperandType == CilOperandType.InlineTok;
+}
+
+#endregion Unbox
+
 #region Unbox_Any
 
 internal record Unbox_Any : IOpCodePattern
@@ -237,9 +253,9 @@ internal record Unbox_Any : IOpCodePattern
     {
         CilOpCodes.Ldarg_0,     // 9	0015	ldarg.0
         CilOpCodes.Callvirt,    // 10	0016	callvirt	instance class VMOperandType VM::PopStack()
-        CilOpCodes.Callvirt,    // 11	001B	callvirt	instance object VMOperandType::vmethod_0()
+        CilOpCodes.Callvirt,    // 11	001B	callvirt	instance object VMOperandType::GetOperandValue()
         CilOpCodes.Ldloc_1,     // 12	0020	ldloc.1
-        CilOpCodes.Call,        // 13	0021	call	class VMOperandType VMOperandType::smethod_0(object, class [mscorlib]System.Type)
+        CilOpCodes.Call,        // 13	0021	call	class VMOperandType VMOperandType::ConvertToVMOperand(object, class [mscorlib]System.Type)
         CilOpCodes.Stloc_2,     // 14	0026	stloc.2
         CilOpCodes.Ldarg_0,     // 15	0027	ldarg.0
         CilOpCodes.Ldloc_2,     // 16	0028	ldloc.2
@@ -325,6 +341,57 @@ internal record Castclass : IOpCodePattern
 }
 #endregion Castclass
 
+#region Isinst
+
+internal record IsVMOperandAssignableFromTypePattern : IPattern
+{
+    public IList<CilOpCode> Pattern => new List<CilOpCode>
+    {
+        CilOpCodes.Ldloc_1,         // 15	001D	ldloc.1
+        CilOpCodes.Ldarg_2,         // 16	001E	ldarg.2
+        CilOpCodes.Beq_S,           // 17	001F	beq.s	61 (007F) ldc.i4.1 
+        CilOpCodes.Ldarg_2,         // 18	0021	ldarg.2
+        CilOpCodes.Ldloc_1,         // 19	0022	ldloc.1
+        CilOpCodes.Callvirt,        // 20	0023	callvirt	instance bool [mscorlib]System.Type::IsAssignableFrom(class [mscorlib]System.Type)
+    };
+
+    public bool MatchEntireBody => false;
+
+    public bool InterchangeLdlocOpCodes => true;
+
+    public bool Verify(CilInstructionCollection instructions, int index = 0) =>
+        (instructions[index + 5].Operand as IMethodDescriptor)?.FullName ==
+        "System.Boolean System.Type::IsAssignableFrom(System.Type)";
+}
+
+internal record Isinst : IOpCodePattern
+{
+    public IList<CilOpCode> Pattern => new List<CilOpCode>
+    { 
+        CilOpCodes.Callvirt,        // 15	001F	callvirt	instance bool VM::IsVMOperandAssignableFromType(class VMOperandType, class [mscorlib]System.Type)
+        CilOpCodes.Brfalse_S,       // 16	0024	brfalse.s	21 (002E) ldarg.0 
+        CilOpCodes.Ldarg_0,         // 17	0026	ldarg.0
+        CilOpCodes.Ldloc_2,         // 18	0027	ldloc.2
+        CilOpCodes.Callvirt,        // 19	0028	callvirt	instance void VM::PushStack(class VMOperandType)
+        CilOpCodes.Ret,             // 20	002D	ret
+        CilOpCodes.Ldarg_0,         // 21	002E	ldarg.0
+        CilOpCodes.Newobj,          // 22	002F	newobj	instance void VMObjectOperand::.ctor()
+        CilOpCodes.Callvirt,        // 23	0034	callvirt	instance void VM::PushStack(class VMOperandType)
+        CilOpCodes.Ret              // 24	0039	ret
+    };
+
+    public CilOpCode? CilOpCode => CilOpCodes.Isinst;
+
+    public bool MatchEntireBody => false;
+    
+    public bool InterchangeLdlocOpCodes => true;
+
+    public bool Verify(CilInstructionCollection instructions, int index = 0) =>
+        PatternMatcher.MatchesPattern(new IsVMOperandAssignableFromTypePattern(),
+            instructions[index].Operand as SerializedMethodDefinition);
+}
+#endregion Isinst
+
 #region Ldftn
 
 internal record Ldftn : IOpCodePattern
@@ -394,3 +461,50 @@ internal record Ldvirtftn : IOpCodePattern
 }
 
 #endregion
+
+#region Sizeof
+
+internal record Sizeof : IOpCodePattern
+{
+    public IList<CilOpCode> Pattern => new List<CilOpCode>
+    { 
+        CilOpCodes.Call,        // 11	0017	call	int32 [mscorlib]System.Runtime.InteropServices.Marshal::SizeOf(class [mscorlib]System.Type)
+        CilOpCodes.Newobj,      // 12	001C	newobj	instance void VMIntOperand::.ctor(int32)
+        CilOpCodes.Callvirt,    // 13	0021	callvirt	instance void VM::PushStack(class VMOperandType)
+    };
+
+    public CilOpCode? CilOpCode => CilOpCodes.Sizeof;
+
+    public bool MatchEntireBody => false;
+
+    public bool Verify(CilInstructionCollection instructions, int index = 0)
+    {
+        var sizeOfCall = instructions[index].Operand as IMethodDescriptor;
+        if (sizeOfCall?.FullName != "System.Int32 System.Runtime.InteropServices.Marshal::SizeOf(System.Type)")
+            return false;
+
+        var pushStackCall = instructions[index + 2].Operand as MethodDefinition;
+        return PatternMatcher.MatchesPattern(new PushStackPattern(), pushStackCall);
+    }
+}
+
+#endregion Sizeof
+
+#region Break
+
+internal record Break : IOpCodePattern
+{
+    public IList<CilOpCode> Pattern => new List<CilOpCode>
+    { 
+        CilOpCodes.Call,        // 0	0000	call	void [mscorlib]System.Diagnostics.Debugger::Break()
+        CilOpCodes.Ret          // 1	0005	ret
+    };
+
+    public CilOpCode? CilOpCode => CilOpCodes.Break;
+
+    public bool Verify(CilInstructionCollection instructions, int index = 0) =>
+        (instructions[index].Operand as IMethodDescriptor)?.FullName ==
+        "System.Void System.Diagnostics.Debugger::Break()";
+}
+
+#endregion Break
