@@ -53,24 +53,26 @@ internal class MethodDevirtualizer : StageBase
         if (!vmMethod.SuccessfullyDevirtualized && (!Ctx.Options.SaveAnyway || Ctx.Options.OnlySaveDevirted))
             return;
 
+        // these need all instructions to be successfully devirtualized to work
         ResolveBranchTargets(vmMethod);
-        
-        // this might need all instructions to be successfully devirtualized to work
-        if (vmMethod.SuccessfullyDevirtualized)
-            ResolveExceptionHandlers(vmMethod);
+        ResolveExceptionHandlers(vmMethod);
 
         vmMethod.Parent.CilMethodBody!.LocalVariables.Clear();
         vmMethod.Locals.ForEach(x => vmMethod.Parent.CilMethodBody.LocalVariables.Add(x));
 
-        // vmMethod.Parent.CilMethodBody!.ExceptionHandlers.Clear();
-        // vmMethod.ExceptionHandlers.ForEach(x => vmMethod.Parent.CilMethodBody.ExceptionHandlers.Add(x));
-
-        // TODO: Remove this when all opcodes are properly handled
-        vmMethod.Parent.CilMethodBody!.VerifyLabelsOnBuild = false;
-        vmMethod.Parent.CilMethodBody!.ComputeMaxStackOnBuild = false;
+        vmMethod.Parent.CilMethodBody!.ExceptionHandlers.Clear();
+        vmMethod.ExceptionHandlers.ForEach(x => vmMethod.Parent.CilMethodBody.ExceptionHandlers.Add(x));
 
         vmMethod.Parent.CilMethodBody.Instructions.Clear();
         vmMethod.Instructions.ForEach(x => vmMethod.Parent.CilMethodBody.Instructions.Add(x));
+        
+        vmMethod.Parent.CilMethodBody!.VerifyLabelsOnBuild = false;
+        vmMethod.Parent.CilMethodBody!.ComputeMaxStackOnBuild = false;
+        if (vmMethod.SuccessfullyDevirtualized && !Ctx.Options.NoVerify)
+        {
+            vmMethod.Parent.CilMethodBody!.ComputeMaxStack(false);
+            vmMethod.Parent.CilMethodBody!.VerifyLabels(false);
+        }
     }
     
     private void ReadExceptionHandlers(VMMethod vmMethod)
@@ -218,6 +220,7 @@ internal class MethodDevirtualizer : StageBase
     private void ResolveExceptionHandlers(VMMethod vmMethod)
     {
         vmMethod.ExceptionHandlers = new List<CilExceptionHandler>();
+        if (!vmMethod.SuccessfullyDevirtualized) return;
         
         var virtualOffsets = GetVirtualOffsets(vmMethod);
         foreach (var vmExceptionHandler in vmMethod.VMExceptionHandlers)
@@ -250,8 +253,9 @@ internal class MethodDevirtualizer : StageBase
                             foundHandlerEnd = true;
                         break;
                     case CilCode.Ret:
-                        if (handlerEndIndex != vmMethod.Instructions.Count - 1)
-                            handlerEndIndex++;
+                        // this shouldn't happen, but this makes the handler end set on the ret instruction instead of one after it
+                        if (handlerEndIndex == vmMethod.Instructions.Count - 1)
+                            handlerEndIndex--;
                         foundHandlerEnd = true;
                         break;
                     case CilCode.Rethrow:
@@ -276,7 +280,7 @@ internal class MethodDevirtualizer : StageBase
             if (vmExceptionHandler.HandlerType == CilExceptionHandlerType.Filter)
                 exceptionHandler.FilterStart = vmMethod.Instructions.GetByOffset(virtualOffsets[vmExceptionHandler.FilterStart])?.CreateLabel();
             
-            vmMethod.Parent.CilMethodBody?.ExceptionHandlers.Add(exceptionHandler);
+            vmMethod.ExceptionHandlers.Add(exceptionHandler);
         }
     }
 

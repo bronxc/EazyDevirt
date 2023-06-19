@@ -75,6 +75,9 @@ internal static class Program
         var preserveAllOption = new Option<bool>(new[] { "--preserve-all"}, "Preserves all metadata tokens");
         preserveAllOption.SetDefaultValue(false);
 
+        var noVerifyOption = new Option<bool>(new[] { "--no-verify"}, "Don't verify labels or compute max stack for devirtualized methods");
+        noVerifyOption.SetDefaultValue(false);
+        
         // TODO: Implement this in code or remove this option
         var keepTypesOption = new Option<bool>(new[] { "--keep-types", "-kt"}, "Keeps obfuscator types");
         keepTypesOption.SetDefaultValue(false);
@@ -85,13 +88,14 @@ internal static class Program
         var onlySaveDevirtedOption = new Option<bool>(new[] { "--only-save-devirted"}, "Only saves successfully devirtualized methods (This option only matters if you use the save anyway option)");
         onlySaveDevirtedOption.SetDefaultValue(false);
 
-        var rootCommand = new RootCommand("EazyDevirt is a tool to automatically restore the original IL code " +
+        var rootCommand = new RootCommand("is an open-source tool that automatically restores the original IL code " +
                                           "from an assembly virtualized with Eazfuscator.NET")
         {
             inputArgument,
             outputArgument,
             verbosityOption,
             preserveAllOption,
+            noVerifyOption,
             keepTypesOption,
             saveAnywayOption,
             onlySaveDevirtedOption
@@ -99,7 +103,7 @@ internal static class Program
         
         rootCommand.SetHandler(Run, 
             new DevirtualizationOptionsBinder(inputArgument, outputArgument, verbosityOption,
-                preserveAllOption, keepTypesOption, saveAnywayOption, onlySaveDevirtedOption));
+                preserveAllOption, noVerifyOption, keepTypesOption, saveAnywayOption, onlySaveDevirtedOption));
         
         return new CommandLineBuilder(rootCommand)
             .UseDefaults()
